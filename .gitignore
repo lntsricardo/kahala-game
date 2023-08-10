@@ -34,3 +34,5 @@ build/
 
 ### Js ###
 */node-modules/*
+
+.mvn/*

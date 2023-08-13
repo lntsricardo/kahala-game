@@ -1,25 +1,18 @@
 package com.bol.kahala.entity;
 
-import static jakarta.persistence.CascadeType.ALL;
-import static jakarta.persistence.FetchType.LAZY;
-import static jakarta.persistence.GenerationType.AUTO;
-
-import java.util.ArrayList;
-import java.util.List;
-
 import com.fasterxml.jackson.annotation.JsonIgnore;
-
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToMany;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import static jakarta.persistence.CascadeType.ALL;
+import static jakarta.persistence.FetchType.LAZY;
+import static jakarta.persistence.GenerationType.SEQUENCE;
 
 @Entity
 @Data
@@ -29,7 +22,8 @@ import lombok.NoArgsConstructor;
 public class Player {
 	
 	@Id
-	@GeneratedValue(strategy = AUTO)
+	@SequenceGenerator(name = "pkPlayer", sequenceName = "player_id_seq", allocationSize = 1)
+	@GeneratedValue(strategy = SEQUENCE, generator = "pkPlayer")
 	private Long id;
 	
 	@Column

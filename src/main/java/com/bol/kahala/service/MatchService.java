@@ -2,28 +2,27 @@ package com.bol.kahala.service;
 
 import static com.bol.kahala.entity.MatchStatus.ACTIVE;
 import static com.bol.kahala.entity.MatchStatus.FINISHED;
+import static java.util.Objects.isNull;
+import static org.springframework.util.StringUtils.hasText;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import com.bol.kahala.exception.KahalaException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.bol.kahala.dto.MoveDTO;
 import com.bol.kahala.dto.NewMatchRequestDTO;
 import com.bol.kahala.entity.Match;
-import com.bol.kahala.entity.MatchStatus;
 import com.bol.kahala.entity.Pit;
 import com.bol.kahala.entity.Player;
 import com.bol.kahala.repository.MatchRepository;
 
 import jakarta.transaction.Transactional;
+import org.springframework.util.StringUtils;
 
 @Service
 public class MatchService {
@@ -44,6 +43,7 @@ public class MatchService {
 	 */
 	@Transactional
 	public Match newMatch(NewMatchRequestDTO newMatchRequestDto) {
+		this.validatePlayersName(newMatchRequestDto);
 		Match match = new Match();
 		match.setStatus(ACTIVE);
 		Player firstPlayer = Player
@@ -64,16 +64,27 @@ public class MatchService {
 		this.repository.save(match);
 		return match;
 	}
-	
+
+	/**
+	 * This method applies some validations to guarantee that a new match can be created successfully.
+	 * @param newMatchRequestDto
+	 */
+	private void validatePlayersName(NewMatchRequestDTO newMatchRequestDto) {
+		if (isNull(newMatchRequestDto) || !hasText(newMatchRequestDto.player1()) || !hasText(newMatchRequestDto.player2())) {
+			throw new IllegalArgumentException("Player's name can't be null or empty.");
+        }
+	}
+
 	/**
 	 * This method get the pits from database and moves the stones from one pit to each of the following pits.
 	 * 
 	 * @param moveDto
-	 * @return
+	 * @return The match after the move.
 	 */
 	@Transactional
 	public Match move(MoveDTO moveDto) {
-		Match match = this.repository.findMatchByPitId(moveDto.pitId());
+		this.validateMoveDto(moveDto);
+		Match match = this.findMatch(moveDto);
 		List<Pit> pits = match
 							.getPlayers()
 							.stream()
@@ -86,56 +97,142 @@ public class MatchService {
 		
 		Pit movePit = pits.stream().filter(p -> p.getId().equals(moveDto.pitId())).findFirst().get();
 		Pit lastPit = this.sowStones(moveDto, pits, movePit);
+		return this.applyFinalSteps(match, pits, movePit, lastPit);
+	}
+
+	/**
+	 * Finds the match in database. If match is not found, that means the pit id is invalid.
+	 *
+	 * @param moveDto
+	 * @return
+	 */
+	private Match findMatch(MoveDTO moveDto) {
+		Match match = this.repository.findMatchByPitId(moveDto.pitId());
+		if (isNull(match)){
+			throw new IllegalArgumentException("Pit id is invalid.");
+		}
+		return match;
+	}
+
+	/**
+	 * This method applies some validation to guarantee that the stones can be moved successfully.
+	 * @param moveDto
+	 */
+	private void validateMoveDto(MoveDTO moveDto) {
+		if (isNull(moveDto) || isNull(moveDto.pitId())){
+			throw new IllegalArgumentException("Pit id can't be null");
+		}
+	}
+
+	/**
+	 * This method applies final steps to the move.
+	 * <ul>
+	 * <li>1 - If the last stone landed in the big pit it returns the match and the player gets another turn.</li>
+	 * <li>2 - If the last stone landed in an empty small pit, steal the stones from the opposite player.</li>
+	 * <li>3 - If any player is out of stones, finishes the match and moves the remaining stones to the player's big pit.</li>
+	 * <li>4 - If 1 and 3 are not true, change the player's turn and returns the match.</li>
+	 * </ul>
+	 * 
+	 * @param match
+	 * @param pits
+	 * @param movePit
+	 * @param lastPit
+	 * @return
+	 */
+	private Match applyFinalSteps(Match match, List<Pit> pits, Pit movePit, Pit lastPit) {
 		if (lastPit.getPitOrder() == BIG_PIT_ORDER) {
 			return match;
 		}
-		final Player lastPitPlayer = lastPit.getPlayer();
 		Player movePlayer = movePit.getPlayer();
-		if (lastPitPlayer.equals(movePlayer) && lastPit.getStones().equals(1)) {
-			Integer reversePitOrder = (SMALL_PIT_MAX_ORDER + 1) - lastPit.getPitOrder();
-			Pit reversePit = pits
-			.stream()
-			.filter(p -> p.getPitOrder() == reversePitOrder && !(p.getPlayer().equals(movePlayer)))
-			.findFirst()
-			.get();
-			if (reversePit.getStones() > 0) {
-				Pit bigPit = pits
-				.stream()
-				.filter(p -> p.getPitOrder() == BIG_PIT_ORDER && p.getPlayer().equals(movePlayer))
-				.findFirst()
-				.get();
-				bigPit.setStones(bigPit.getStones() + lastPit.getStones() + reversePit.getStones());
-				reversePit.setStones(0);
-				lastPit.setStones(0);
-			}
-		}
+		this.stealOppositeStones(pits, lastPit, movePlayer);
 		Map<Player, Integer> playerStones = pits
 		 .stream()
 		 .filter(p -> p.getPitOrder() != BIG_PIT_ORDER)
 		 .collect(Collectors.groupingBy(Pit::getPlayer, Collectors.summingInt(Pit::getStones)));
 		boolean isOutOfStones = playerStones.values().stream().anyMatch(t -> t.equals(0));
 		if (isOutOfStones) {
-			for (Map.Entry<Player, Integer> entry : playerStones.entrySet()) {
-				Player player = entry.getKey();
-				Integer sum = entry.getValue();
-				if (sum == 0) {
-					continue;
-				}
-				Pit bigPit = player.getPits().stream().filter(p -> p.getPitOrder().equals(BIG_PIT_ORDER)).findFirst().get();
-				bigPit.setStones(bigPit.getStones() + sum);
-			}
-			match.setStatus(FINISHED);
-			return match;
+			return this.finishMatch(match, playerStones);
 		}
-		
+		return this.changePlayersTurn(match, movePlayer);
+	}
+
+	/**
+	 * This method changes each players turn variable.
+	 * @param match
+	 * @param movePlayer
+	 * @return
+	 */
+	private Match changePlayersTurn(Match match, Player movePlayer) {
 		movePlayer.setTurn(false);
-		Player otherPlayer = match.getPlayers().stream().filter(p -> !(p.getId().equals(movePlayer.getId()))).findFirst().get();
-		otherPlayer.setTurn(true);
+		Optional<Player> otherPlayer = match.getPlayers().stream().filter(p -> !(p.getId().equals(movePlayer.getId()))).findFirst();
+		otherPlayer.ifPresent(op -> op.setTurn(true));
 		return match;
 	}
 
 	/**
-	 * This method sows the stones from the movePit to each one of the following pits, excluding only the opposite player's big.
+	 * Gets all the stones from small pits and adds it to the big pit. Also, set the match status to {@link com.bol.kahala.entity.MatchStatus}.FINISHED.
+	 * @param match
+	 * @param playerStones
+	 * @return
+	 */
+	private Match finishMatch(Match match, Map<Player, Integer> playerStones) {
+		playerStones
+			.keySet()
+			.forEach(player -> {
+				player.setTurn(false);
+				Optional<Pit> bigPit = player.getPits().stream().filter(p -> p.getPitOrder().equals(BIG_PIT_ORDER)).findFirst();
+				bigPit.ifPresent(bp -> bp.addToStones(playerStones.get(player)));
+			});
+		match.setStatus(FINISHED);
+		return match;
+	}
+
+	/**
+	 * Verifies if the last stone landed in a player's empty pit. If it is empty and the opposite pit has stones,
+	 * it captures all the stones from the opposite pit and adds them to the big pit. If it is not empty or the opposite
+	 * pit doesn't have stones, no stones are added to the big pit.
+	 * 
+	 * @param pits
+	 * @param lastPit
+	 * @param movePlayer
+	 */
+	private void stealOppositeStones(List<Pit> pits, Pit lastPit, Player movePlayer) {
+		final Player lastPitPlayer = lastPit.getPlayer();
+		if (!hasLandedInEmptyPit(lastPit, movePlayer, lastPitPlayer)) {
+			return;
+		}
+		Integer oppositePitOrder = (SMALL_PIT_MAX_ORDER + 1) - lastPit.getPitOrder();
+		Optional<Pit> oppositePit = pits
+				.stream()
+				.filter(p -> p.getPitOrder().equals(oppositePitOrder) && !(p.getPlayer().equals(movePlayer)))
+				.findFirst();
+		if (oppositePit.isEmpty() || oppositePit.get().getStones().equals(0)) {
+			return;
+		}
+		Optional<Pit> bigPit = pits
+				.stream()
+				.filter(p -> p.getPitOrder().equals(BIG_PIT_ORDER) && p.getPlayer().equals(movePlayer))
+				.findFirst();
+		Consumer<Pit> addStonesConsumer = p -> p.addToStones(lastPit.getStones() + oppositePit.get().getStones());
+		bigPit.ifPresentOrElse(addStonesConsumer, () -> { throw new KahalaException("Big pit not found."); });
+		oppositePit.get().setStones(0);
+		lastPit.setStones(0);
+	}
+
+	/**
+	 * Validates if the stone landed in player's empty pit.
+	 *
+	 * @param lastPit
+	 * @param movePlayer
+	 * @param lastPitPlayer
+	 * @return True if
+	 */
+	private boolean hasLandedInEmptyPit(Pit lastPit, Player movePlayer, final Player lastPitPlayer) {
+		return lastPitPlayer.equals(movePlayer) && lastPit.getStones().equals(1);
+	}
+
+	/**
+	 * This method sows the stones from the movePit to each one of the following pits, excluding only the opposite player's big pit.
 	 * 
 	 * @param moveDto
 	 * @param pits

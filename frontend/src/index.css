@@ -1,0 +1,76 @@
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+.pit-container {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+}
+
+/* .pit { */
+/*     width: 60px; */
+/*     height: 100px; */
+/*     background-color: #ddd; */
+/*     border-radius: 50px; */
+/*     display: flex; */
+/*     align-items: center; */
+/*     justify-content: center; */
+/*     margin: 5px; */
+/*     position: relative; */
+/* } */
+.pit {
+    display: inline-block;
+    width: 60px;
+    height: 70px;
+    background-color: #ccc;
+    border-radius: 50%;
+    margin: 5px; 
+    text-align: center;
+    vertical-align: middle;
+    cursor: pointer;
+    user-select: none; 
+    pointer-events: auto; 
+}
+
+.pit.big-pit {
+	background-color: #8eadde;
+    width: 75px; 
+    height: 100px; 
+    pointer-events: none;
+    text-align: center;
+    vertical-align: middle; 
+}
+
+.pit-container.turn {
+	background-color: #f4f5da;
+}
+
+.stones {
+    font-size: 20px;
+    font-weight: bold;
+}
+
+.error-message {
+  color: red;
+  font-weight: bold;
+}
+
+.page-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh; /* Set to 100% of the viewport height */
+}

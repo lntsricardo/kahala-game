@@ -1,36 +1,30 @@
 package com.bol.kahala.service;
 
-import static com.bol.kahala.entity.MatchStatus.ACTIVE;
-import static com.bol.kahala.entity.MatchStatus.FINISHED;
-import static java.util.Objects.isNull;
-import static org.springframework.util.StringUtils.hasText;
+import com.bol.kahala.constants.KahalaConstants;
+import com.bol.kahala.dto.MoveDTO;
+import com.bol.kahala.dto.NewMatchRequestDTO;
+import com.bol.kahala.entity.Match;
+import com.bol.kahala.entity.Pit;
+import com.bol.kahala.entity.Player;
+import com.bol.kahala.exception.KahalaException;
+import com.bol.kahala.repository.MatchRepository;
+import jakarta.transaction.Transactional;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import com.bol.kahala.exception.KahalaException;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
-import com.bol.kahala.dto.MoveDTO;
-import com.bol.kahala.dto.NewMatchRequestDTO;
-import com.bol.kahala.entity.Match;
-import com.bol.kahala.entity.Pit;
-import com.bol.kahala.entity.Player;
-import com.bol.kahala.repository.MatchRepository;
-
-import jakarta.transaction.Transactional;
-import org.springframework.util.StringUtils;
+import static com.bol.kahala.constants.KahalaConstants.*;
+import static com.bol.kahala.entity.MatchStatus.ACTIVE;
+import static com.bol.kahala.entity.MatchStatus.FINISHED;
+import static java.util.Objects.isNull;
+import static org.springframework.util.StringUtils.hasText;
 
 @Service
 public class MatchService {
-	
-	private static final int BIG_PIT_DEFAULT_VALUE = 0;
-	private static final int SMALL_PIT_DEFAULT_VALUE = 6;
-	private static final int SMALL_PIT_MAX_ORDER = 6;
-	private static final int BIG_PIT_ORDER = 7;
 	
 	@Autowired
 	private MatchRepository repository;
@@ -71,7 +65,7 @@ public class MatchService {
 	 */
 	private void validatePlayersName(NewMatchRequestDTO newMatchRequestDto) {
 		if (isNull(newMatchRequestDto) || !hasText(newMatchRequestDto.player1()) || !hasText(newMatchRequestDto.player2())) {
-			throw new IllegalArgumentException("Player's name can't be null or empty.");
+			throw new IllegalArgumentException(ERROR_MESSAGE_PLAYER_NAME_EMPTY);
         }
 	}
 
@@ -94,10 +88,22 @@ public class MatchService {
 									.comparing(Pit::getPlayer, Comparator.comparing(Player::getId))
 									.thenComparingInt(Pit::getPitOrder))
 							.toList();
-		
-		Pit movePit = pits.stream().filter(p -> p.getId().equals(moveDto.pitId())).findFirst().get();
+		Pit movePit = pits
+				.stream()
+				.filter(p -> p.getId().equals(moveDto.pitId()))
+				.findFirst()
+				.get();
+		this.validatePlayersTurn(movePit);
 		Pit lastPit = this.sowStones(moveDto, pits, movePit);
 		return this.applyFinalSteps(match, pits, movePit, lastPit);
+	}
+
+	private void validatePlayersTurn(Pit movePit) {
+		Player player = movePit.getPlayer();
+		if (player.isTurn()){
+			return;
+		}
+		throw new IllegalArgumentException(KahalaConstants.ERROR_MESSAGE_PLAYERS_TURN);
 	}
 
 	/**
@@ -109,7 +115,7 @@ public class MatchService {
 	private Match findMatch(MoveDTO moveDto) {
 		Match match = this.repository.findMatchByPitId(moveDto.pitId());
 		if (isNull(match)){
-			throw new IllegalArgumentException("Pit id is invalid.");
+			throw new IllegalArgumentException(ERROR_MESSAGE_PIT_ID_INVALID);
 		}
 		return match;
 	}
@@ -120,7 +126,7 @@ public class MatchService {
 	 */
 	private void validateMoveDto(MoveDTO moveDto) {
 		if (isNull(moveDto) || isNull(moveDto.pitId())){
-			throw new IllegalArgumentException("Pit id can't be null");
+			throw new IllegalArgumentException(ERROR_MESSAGE_PIT_ID_NULL);
 		}
 	}
 
@@ -140,18 +146,18 @@ public class MatchService {
 	 * @return
 	 */
 	private Match applyFinalSteps(Match match, List<Pit> pits, Pit movePit, Pit lastPit) {
-		if (lastPit.getPitOrder() == BIG_PIT_ORDER) {
-			return match;
-		}
 		Player movePlayer = movePit.getPlayer();
 		this.stealOppositeStones(pits, lastPit, movePlayer);
 		Map<Player, Integer> playerStones = pits
-		 .stream()
-		 .filter(p -> p.getPitOrder() != BIG_PIT_ORDER)
-		 .collect(Collectors.groupingBy(Pit::getPlayer, Collectors.summingInt(Pit::getStones)));
+				.stream()
+				.filter(p -> p.getPitOrder() != BIG_PIT_ORDER)
+				.collect(Collectors.groupingBy(Pit::getPlayer, Collectors.summingInt(Pit::getStones)));
 		boolean isOutOfStones = playerStones.values().stream().anyMatch(t -> t.equals(0));
 		if (isOutOfStones) {
-			return this.finishMatch(match, playerStones);
+			return this.finishMatch(match);
+		}
+		if (lastPit.getPitOrder() == BIG_PIT_ORDER) {
+			return match;
 		}
 		return this.changePlayersTurn(match, movePlayer);
 	}
@@ -172,16 +178,21 @@ public class MatchService {
 	/**
 	 * Gets all the stones from small pits and adds it to the big pit. Also, set the match status to {@link com.bol.kahala.entity.MatchStatus}.FINISHED.
 	 * @param match
-	 * @param playerStones
 	 * @return
 	 */
-	private Match finishMatch(Match match, Map<Player, Integer> playerStones) {
-		playerStones
-			.keySet()
+	private Match finishMatch(Match match) {
+		match.getPlayers()
 			.forEach(player -> {
 				player.setTurn(false);
 				Optional<Pit> bigPit = player.getPits().stream().filter(p -> p.getPitOrder().equals(BIG_PIT_ORDER)).findFirst();
-				bigPit.ifPresent(bp -> bp.addToStones(playerStones.get(player)));
+				player
+					.getPits()
+					.forEach(pit -> {
+						if (!pit.getPitOrder().equals(BIG_PIT_ORDER)){
+							bigPit.ifPresent(bp -> bp.addToStones(pit.getStones()));
+							pit.setStones(0);
+						}
+					});
 			});
 		match.setStatus(FINISHED);
 		return match;
@@ -228,7 +239,7 @@ public class MatchService {
 	 * @return True if
 	 */
 	private boolean hasLandedInEmptyPit(Pit lastPit, Player movePlayer, final Player lastPitPlayer) {
-		return lastPitPlayer.equals(movePlayer) && lastPit.getStones().equals(1);
+		return lastPitPlayer.equals(movePlayer) && lastPit.getStones().equals(1) && !lastPit.getPitOrder().equals(7);
 	}
 
 	/**
@@ -253,7 +264,7 @@ public class MatchService {
 			if (pit.getPitOrder() == BIG_PIT_ORDER && !(movePit.getPlayer().equals(pit.getPlayer()))) {
 				continue;
 			}
-			pit.setStones(pit.getStones() + 1);
+			pit.addToStones(1);
 			lastPit = pit;
 			stones--;
 		}

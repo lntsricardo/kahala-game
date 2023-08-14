@@ -1,5 +1,6 @@
 package com.bol.kahala.controller;
 
+import com.bol.kahala.dto.KahalaErrorDTO;
 import com.bol.kahala.dto.MoveDTO;
 import com.bol.kahala.dto.NewMatchRequestDTO;
 import com.bol.kahala.entity.Match;
@@ -29,7 +30,8 @@ public class MatchController {
 	 */
 	 @Operation(summary = "New match", description = "This endpoint creates a new match.")
 	    @ApiResponses({
-	            @ApiResponse(responseCode = "201", description = "Match created successfully", content = @Content(mediaType = "application/json", schema = @Schema(implementation = Match.class)))
+	            @ApiResponse(responseCode = "201", description = "Match created successfully", content = @Content(mediaType = "application/json", schema = @Schema(implementation = Match.class))),
+				@ApiResponse(responseCode = "400", description = "Error creating new match.", content = @Content(mediaType = "application/json", schema = @Schema(implementation = KahalaErrorDTO.class)))
 
 	    })
 	@PostMapping
@@ -46,8 +48,8 @@ public class MatchController {
 	 @Operation(summary = "Move", description = "This endpoint moves the stones from one pit.")
 	    @ApiResponses({
 	            @ApiResponse(responseCode = "200", description = "Stones moved successfully", content = @Content(mediaType = "application/json", schema = @Schema(implementation = Match.class))),
-				@ApiResponse(responseCode = "500", description = "Error moving the stones", content = @Content(mediaType = "application/json", schema = @Schema(implementation = KahalaException.class))),
-				@ApiResponse(responseCode = "400", description = "Pit id is invalid.", content = @Content(mediaType = "application/json", schema = @Schema(implementation = KahalaIllegalArgumentException.class)))
+				@ApiResponse(responseCode = "500", description = "Error moving the stones", content = @Content(mediaType = "application/json", schema = @Schema(implementation = KahalaErrorDTO.class))),
+				@ApiResponse(responseCode = "400", description = "Request body is invalid.", content = @Content(mediaType = "application/json", schema = @Schema(implementation = KahalaErrorDTO.class)))
 	    })
 	@PutMapping
 	public ResponseEntity<Match> move(@RequestBody MoveDTO moveDto){

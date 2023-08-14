@@ -1,3 +1,4 @@
+version: '3.5'
 services:
   postgres:
     image: postgres
@@ -6,5 +7,21 @@ services:
       - 5440:5432
     env_file:
       - ./db/app.env
-#    volumes:
-#      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  kahala:
+    build: .
+    image: kahala:latest
+    container_name: kahala
+    ports:
+      - 8080:8080
+    restart: always
+    environment:
+      - "spring.datasource.url=jdbc:postgresql://postgres:5432/kahala"
+
+volumes:
+  postgres:
+  kahala:
+
+networks:
+  default:
+    name: kahala-app

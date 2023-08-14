@@ -11,7 +11,6 @@ import lombok.Data;
 
 @Entity
 @Data
-//@Builder
 public class Match {
 	
 	@Id
@@ -21,7 +20,9 @@ public class Match {
 	
 	@OneToMany(cascade = CascadeType.ALL, mappedBy = "match")
 	private List<Player> players = new ArrayList<>();
-	
+
+	@Enumerated(EnumType.STRING)
+	@Column
 	private MatchStatus status;
 	
 	public void addToPlayers(Player player) {

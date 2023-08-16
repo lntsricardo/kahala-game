@@ -11,6 +11,8 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +21,8 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/match")
 public class MatchController {
+
+	private static final Logger LOGGER = LoggerFactory.getLogger(MatchController.class);
 	
 	@Autowired
 	private MatchService service;
@@ -36,6 +40,7 @@ public class MatchController {
 	    })
 	@PostMapping
 	public ResponseEntity<Match> newMatch(@RequestBody NewMatchRequestDTO newMatchRequestDto){
+		LOGGER.debug("POST - newMatch with param {}", newMatchRequestDto);
 		Match match = this.service.newMatch(newMatchRequestDto);
 		return new ResponseEntity<Match>(match, HttpStatus.CREATED);
 	}
@@ -53,6 +58,7 @@ public class MatchController {
 	    })
 	@PutMapping
 	public ResponseEntity<Match> move(@RequestBody MoveDTO moveDto){
+		 LOGGER.debug("PUT - move with param {}", moveDto);
 		Match match = this.service.move(moveDto);
 		return ResponseEntity.ok(match);
 	}

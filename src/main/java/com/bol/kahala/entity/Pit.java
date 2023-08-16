@@ -5,10 +5,7 @@ import static jakarta.persistence.GenerationType.SEQUENCE;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 @Entity
 @Data
@@ -28,6 +25,7 @@ public class Pit {
 	@ManyToOne(fetch = FetchType.LAZY, optional = true)
 	@JoinColumn
 	@JsonIgnore
+	@ToString.Exclude
 	private Player player;
 	
 	@Column

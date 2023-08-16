@@ -9,6 +9,8 @@ import com.bol.kahala.entity.Player;
 import com.bol.kahala.exception.KahalaException;
 import com.bol.kahala.repository.MatchRepository;
 import jakarta.transaction.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -25,6 +27,8 @@ import static org.springframework.util.StringUtils.hasText;
 
 @Service
 public class MatchService {
+
+	private static final Logger LOGGER = LoggerFactory.getLogger(MatchService.class);
 	
 	@Autowired
 	private MatchRepository repository;
@@ -37,6 +41,7 @@ public class MatchService {
 	 */
 	@Transactional
 	public Match newMatch(NewMatchRequestDTO newMatchRequestDto) {
+		LOGGER.info("Creating a new match with players {}", newMatchRequestDto);
 		this.validatePlayersName(newMatchRequestDto);
 		Match match = new Match();
 		match.setStatus(ACTIVE);
@@ -56,27 +61,19 @@ public class MatchService {
 		this.createPits(secondPlayer);
 		match.setPlayers(Arrays.asList(firstPlayer, secondPlayer));
 		this.repository.save(match);
+		LOGGER.info("Match created successfully. {}", match);
 		return match;
 	}
 
 	/**
-	 * This method applies some validations to guarantee that a new match can be created successfully.
-	 * @param newMatchRequestDto
-	 */
-	private void validatePlayersName(NewMatchRequestDTO newMatchRequestDto) {
-		if (isNull(newMatchRequestDto) || !hasText(newMatchRequestDto.player1()) || !hasText(newMatchRequestDto.player2())) {
-			throw new IllegalArgumentException(ERROR_MESSAGE_PLAYER_NAME_EMPTY);
-        }
-	}
-
-	/**
 	 * This method get the pits from database and moves the stones from one pit to each of the following pits.
-	 * 
+	 *
 	 * @param moveDto
 	 * @return The match after the move.
 	 */
 	@Transactional
 	public Match move(MoveDTO moveDto) {
+		LOGGER.info("Moving stones. {}", moveDto);
 		this.validateMoveDto(moveDto);
 		Match match = this.findMatch(moveDto);
 		List<Pit> pits = match
@@ -93,9 +90,21 @@ public class MatchService {
 				.filter(p -> p.getId().equals(moveDto.pitId()))
 				.findFirst()
 				.get();
+		LOGGER.info("Moving stones from pit {}", movePit);
 		this.validatePlayersTurn(movePit);
 		Pit lastPit = this.sowStones(moveDto, pits, movePit);
 		return this.applyFinalSteps(match, pits, movePit, lastPit);
+	}
+
+	/**
+	 * This method applies some validations to guarantee that a new match can be created successfully.
+	 * @param newMatchRequestDto
+	 */
+	private void validatePlayersName(NewMatchRequestDTO newMatchRequestDto) {
+		if (isNull(newMatchRequestDto) || !hasText(newMatchRequestDto.player1()) || !hasText(newMatchRequestDto.player2())) {
+			LOGGER.error("Player name cannot be null or empty.");
+			throw new IllegalArgumentException(ERROR_MESSAGE_PLAYER_NAME_EMPTY);
+		}
 	}
 
 	private void validatePlayersTurn(Pit movePit) {
@@ -103,6 +112,7 @@ public class MatchService {
 		if (player.isTurn()){
 			return;
 		}
+		LOGGER.error("Wrong player making move.");
 		throw new IllegalArgumentException(KahalaConstants.ERROR_MESSAGE_PLAYERS_TURN);
 	}
 
@@ -115,6 +125,7 @@ public class MatchService {
 	private Match findMatch(MoveDTO moveDto) {
 		Match match = this.repository.findMatchByPitId(moveDto.pitId());
 		if (isNull(match)){
+			LOGGER.error("Match not found. Probably pit id is invalid.");
 			throw new IllegalArgumentException(ERROR_MESSAGE_PIT_ID_INVALID);
 		}
 		return match;
@@ -126,6 +137,7 @@ public class MatchService {
 	 */
 	private void validateMoveDto(MoveDTO moveDto) {
 		if (isNull(moveDto) || isNull(moveDto.pitId())){
+			LOGGER.error("Pit id cannot be null.");
 			throw new IllegalArgumentException(ERROR_MESSAGE_PIT_ID_NULL);
 		}
 	}
@@ -146,6 +158,7 @@ public class MatchService {
 	 * @return
 	 */
 	private Match applyFinalSteps(Match match, List<Pit> pits, Pit movePit, Pit lastPit) {
+		LOGGER.debug("Applying final steps to match {}", match.getId());
 		Player movePlayer = movePit.getPlayer();
 		this.stealOppositeStones(pits, lastPit, movePlayer);
 		Map<Player, Integer> playerStones = pits
@@ -157,6 +170,7 @@ public class MatchService {
 			return this.finishMatch(match);
 		}
 		if (lastPit.getPitOrder() == BIG_PIT_ORDER) {
+			LOGGER.info("Last pit is {}. Returning without changing the turn to the opposite player.", lastPit.getId());
 			return match;
 		}
 		return this.changePlayersTurn(match, movePlayer);
@@ -169,6 +183,7 @@ public class MatchService {
 	 * @return
 	 */
 	private Match changePlayersTurn(Match match, Player movePlayer) {
+		LOGGER.info("Changing player {} turn from {} to {}", movePlayer.getId(), movePlayer.isTurn(), !movePlayer.isTurn());
 		movePlayer.setTurn(false);
 		Optional<Player> otherPlayer = match.getPlayers().stream().filter(p -> !(p.getId().equals(movePlayer.getId()))).findFirst();
 		otherPlayer.ifPresent(op -> op.setTurn(true));
@@ -181,6 +196,7 @@ public class MatchService {
 	 * @return
 	 */
 	private Match finishMatch(Match match) {
+		LOGGER.info("Finishing match...");
 		match.getPlayers()
 			.forEach(player -> {
 				player.setTurn(false);
@@ -189,6 +205,7 @@ public class MatchService {
 					.getPits()
 					.forEach(pit -> {
 						if (!pit.getPitOrder().equals(BIG_PIT_ORDER)){
+							LOGGER.debug("Adding {} stones from small pit {} to big", pit.getStones(), pit.getId());
 							bigPit.ifPresent(bp -> bp.addToStones(pit.getStones()));
 							pit.setStones(0);
 						}
@@ -208,8 +225,10 @@ public class MatchService {
 	 * @param movePlayer
 	 */
 	private void stealOppositeStones(List<Pit> pits, Pit lastPit, Player movePlayer) {
+		LOGGER.debug("Validating the possibility to steal the opposite pit stones");
 		final Player lastPitPlayer = lastPit.getPlayer();
 		if (!hasLandedInEmptyPit(lastPit, movePlayer, lastPitPlayer)) {
+			LOGGER.debug("Last stone didn't land on empty pit. Returning...");
 			return;
 		}
 		Integer oppositePitOrder = (SMALL_PIT_MAX_ORDER + 1) - lastPit.getPitOrder();
@@ -218,6 +237,7 @@ public class MatchService {
 				.filter(p -> p.getPitOrder().equals(oppositePitOrder) && !(p.getPlayer().equals(movePlayer)))
 				.findFirst();
 		if (oppositePit.isEmpty() || oppositePit.get().getStones().equals(0)) {
+			LOGGER.debug("Opposite pit has no stones. Returning...");
 			return;
 		}
 		Optional<Pit> bigPit = pits
@@ -225,7 +245,11 @@ public class MatchService {
 				.filter(p -> p.getPitOrder().equals(BIG_PIT_ORDER) && p.getPlayer().equals(movePlayer))
 				.findFirst();
 		Consumer<Pit> addStonesConsumer = p -> p.addToStones(lastPit.getStones() + oppositePit.get().getStones());
-		bigPit.ifPresentOrElse(addStonesConsumer, () -> { throw new KahalaException("Big pit not found."); });
+		bigPit.ifPresentOrElse(addStonesConsumer, () -> {
+			LOGGER.error("Error adding stones to big pit.");
+			throw new KahalaException("Big pit not found.");
+		});
+		LOGGER.info("Stealing opposite pit stones. lastPit {}. oppositePit {}", lastPit.getId(), oppositePit.get().getId());
 		oppositePit.get().setStones(0);
 		lastPit.setStones(0);
 	}
@@ -256,17 +280,20 @@ public class MatchService {
 		movePit.setStones(0);
 		Pit lastPit = null;
 		while (stones > 0) {
+			LOGGER.info("{} stones left to move. Pit index {}", stones, pitIndex);
 			pitIndex++;
 			if (pitIndex == pits.size()) {
 				pitIndex = 0;
 			}
 			Pit pit = pits.get(pitIndex);
 			if (pit.getPitOrder() == BIG_PIT_ORDER && !(movePit.getPlayer().equals(pit.getPlayer()))) {
+				LOGGER.debug("Opposite big pit. Ignoring...");
 				continue;
 			}
 			pit.addToStones(1);
 			lastPit = pit;
 			stones--;
+			LOGGER.info("Pit {} has now {} stones.", pit.getId(), pit.getStones());
 		}
 		return lastPit;
 	}
@@ -276,13 +303,16 @@ public class MatchService {
 	 * @param player
 	 */
 	private void createPits(Player player) {
+		LOGGER.info("Creating small pits for player {}", player.getName());
 		for (int index = 1; index <= SMALL_PIT_MAX_ORDER; index++) {
+			LOGGER.debug("Creating small pit with order {} for player {}", index, player.getName());
 			player.addToPits(Pit.builder()
 					.stones(SMALL_PIT_DEFAULT_VALUE)
 					.player(player)
 					.pitOrder(index)
 					.build());
 		}
+		LOGGER.debug("Creating big pit for player {}", player.getName());
 		player.addToPits(Pit.builder()
 					.stones(BIG_PIT_DEFAULT_VALUE)
 					.player(player)

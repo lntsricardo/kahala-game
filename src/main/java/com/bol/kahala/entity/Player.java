@@ -2,10 +2,7 @@ package com.bol.kahala.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -39,6 +36,7 @@ public class Player {
 	@ManyToOne(fetch = LAZY, optional = false)
 	@JoinColumn
 	@JsonIgnore
+	@ToString.Exclude
 	private Match match;
 	
 	public void addToPits(Pit pit) {

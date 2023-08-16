@@ -33,7 +33,9 @@ function Board() {
     }, null);
     return (
         <div className="page-container">
-            <h2>Kahala</h2>
+            <div className="Title">
+                <h2>Kahala</h2>
+            </div>
             {isMatchFinished && (
                 <p className="winner-message">Match is over! {winningPlayer.name} is the winner!</p>
             )}

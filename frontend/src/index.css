@@ -5,6 +5,7 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-weight: 800;
 }
 
 code {
@@ -19,19 +20,10 @@ code {
     justify-content: center;
 }
 
-/* .pit { */
-/*     width: 60px; */
-/*     height: 100px; */
-/*     background-color: #ddd; */
-/*     border-radius: 50px; */
-/*     display: flex; */
-/*     align-items: center; */
-/*     justify-content: center; */
-/*     margin: 5px; */
-/*     position: relative; */
-/* } */
 .pit {
-    display: inline-block;
+    display: flex;
+    justify-content: center;
+    align-items: center;
     width: 60px;
     height: 70px;
     background-color: #ccc;
@@ -41,7 +33,7 @@ code {
     vertical-align: middle;
     cursor: pointer;
     user-select: none; 
-    pointer-events: auto; 
+    pointer-events: auto;
 }
 
 .pit.big-pit {
@@ -54,7 +46,7 @@ code {
 }
 
 .pit-container.turn {
-	background-color: #f4f5da;
+	background-color: rgba(244, 245, 218, 0.6);
 }
 
 .stones {
@@ -68,9 +60,25 @@ code {
 }
 
 .page-container {
+  text-shadow: 3px 3px 2px rgba(186, 189, 255, 1);
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  height: 100vh; /* Set to 100% of the viewport height */
+  justify-content: flex-start;
+  height: 100vh;
 }
+
+#root {
+  background-color: #E1FAF0;
+  opacity: 1;
+  background-image:  radial-gradient(#8eadde 0.75px, transparent 0.75px), radial-gradient(#8eadde 0.75px, #ebfff7 0.75px);
+  background-size: 30px 30px;
+  background-position: 0 0,15px 15px;
+}
+
+.title {
+  line-height: 3;
+  font-weight: bold;
+  text-shadow: 3px 3px 2px rgba(186, 189, 255, 1);
+}
+

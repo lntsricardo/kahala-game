@@ -28,22 +28,27 @@ function NewMatch() {
     };
 
     return (
-        <div>
-        	{error && <p className="error-message">{error}</p>}
-            <h2>New Match</h2>
-            <input
-                type="text"
-                placeholder="Player 1"
-                value={player1}
-                onChange={(e) => setPlayer1(e.target.value)}
-            />
-            <input
-                type="text"
-                placeholder="Player 2"
-                value={player2}
-                onChange={(e) => setPlayer2(e.target.value)}
-            />
-            <button onClick={startMatch}>Start Match</button>
+        <div className="page-container">
+            <div className="title">
+                <h2>Kahala</h2>
+            </div>
+            <div>
+                {error && <p className="error-message">{error}</p>}
+                <h3>New Match</h3>
+                <input
+                    type="text"
+                    placeholder="Player 1"
+                    value={player1}
+                    onChange={(e) => setPlayer1(e.target.value)}
+                />
+                <input
+                    type="text"
+                    placeholder="Player 2"
+                    value={player2}
+                    onChange={(e) => setPlayer2(e.target.value)}
+                />
+                <button onClick={startMatch}>Start Match</button>
+            </div>
         </div>
     );
 }

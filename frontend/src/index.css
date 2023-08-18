@@ -1,0 +1,84 @@
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-weight: 800;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+.pit-container {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+}
+
+.pit {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 60px;
+    height: 70px;
+    background-color: #ccc;
+    border-radius: 50%;
+    margin: 5px; 
+    text-align: center;
+    vertical-align: middle;
+    cursor: pointer;
+    user-select: none; 
+    pointer-events: auto;
+}
+
+.pit.big-pit {
+	background-color: #8eadde;
+    width: 75px; 
+    height: 100px; 
+    pointer-events: none;
+    text-align: center;
+    vertical-align: middle; 
+}
+
+.pit-container.turn {
+	background-color: rgba(244, 245, 218, 0.6);
+}
+
+.stones {
+    font-size: 20px;
+    font-weight: bold;
+}
+
+.error-message {
+  color: red;
+  font-weight: bold;
+}
+
+.page-container {
+  text-shadow: 3px 3px 2px rgba(186, 189, 255, 1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  height: 100vh;
+}
+
+#root {
+  background-color: #E1FAF0;
+  opacity: 1;
+  background-image:  radial-gradient(#8eadde 0.75px, transparent 0.75px), radial-gradient(#8eadde 0.75px, #ebfff7 0.75px);
+  background-size: 30px 30px;
+  background-position: 0 0,15px 15px;
+}
+
+.title {
+  line-height: 3;
+  font-weight: bold;
+  text-shadow: 3px 3px 2px rgba(186, 189, 255, 1);
+}
+

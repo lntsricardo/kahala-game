@@ -1,0 +1,9 @@
+version: '3.5'
+services:
+  postgres:
+    image: postgres
+    container_name: postgres_kahala
+    ports:
+      - 5440:5432
+    env_file:
+      - ./db/app.env

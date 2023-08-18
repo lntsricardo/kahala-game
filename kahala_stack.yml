@@ -1,0 +1,27 @@
+version: '3.5'
+services:
+  postgres:
+    image: postgres
+    container_name: postgres_kahala
+    ports:
+      - 5440:5432
+    env_file:
+      - ./db/app.env
+
+  kahala:
+    build: .
+    image: kahala:latest
+    container_name: kahala
+    ports:
+      - 8080:8080
+    restart: always
+    environment:
+      - "spring.datasource.url=jdbc:postgresql://postgres:5432/kahala"
+
+volumes:
+  postgres:
+  kahala:
+
+networks:
+  default:
+    name: kahala-app
